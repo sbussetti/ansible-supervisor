@@ -43,7 +43,7 @@
             mode=754
 
 - name: checking if supervisord is running
-  shell: pgrep -u {{ ansible_user_id }} supervisor
+  shell: pgrep -u {{ supervisord_user }} supervisor
   ignore_errors: on
   changed_when: off
   register: supervisor_running
