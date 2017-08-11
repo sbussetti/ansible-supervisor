@@ -42,13 +42,36 @@
             dest={{ supervisor_config_dir }}/supervisor-http.ini
             mode=754
 
+## MANUAL RUN
 - name: checking if supervisord is running
   shell: pgrep -u {{ supervisord_user }} supervisor
   ignore_errors: on
-  changed_when: off
   register: supervisor_running
+  when: not supervisor_init_scripts
 
 - name: running supervisord
   shell: chdir={{ supervisor_home }}
          {{ supervisord_path }} -c {{ supervisor_config }}
-  when: supervisor_running|failed
+  when: not supervisor_init_scripts and supervisor_running|failed
+
+## INIT SERVICE RUN
+- name: install supervisor service
+  become: true
+  become_user: root
+  template: src=supervisord_initd.j2 dest=/etc/init.d/supervisord mode=0755
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and supervisor_init_scripts
+
+- name: update-rc.d supervisord defaults 
+  shell: update-rc.d supervisord defaults
+  become: true
+  become_user: root
+  register: result
+  changed_when: "result.rc != 0"
+  notify: restart supervisord
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and supervisor_init_scripts
+
+- meta: flush_handlers
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and supervisor_init_scripts
+
+- name: ensure supervisord service
+  service: name=supervisord state=started
